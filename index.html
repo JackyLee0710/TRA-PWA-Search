@@ -24,6 +24,12 @@
         .details-content.expanded {
             max-height: 500px; /* 設定一個足夠大的高度 */
         }
+        /* 當 PWA 以獨立視窗 (standalone) 模式運行時，隱藏這個按鈕 */
+        @media all and (display-mode: standalone), (display-mode: fullscreen), (display-mode: minimal-ui) {
+            #installButton {
+                display: none !important; 
+            }
+        }
     </style>
 </head>    
 <body class="bg-gray-100 text-gray-800">
