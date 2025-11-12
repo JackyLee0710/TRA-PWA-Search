@@ -2,7 +2,7 @@
   "name": "台鐵快速查",
   "short_name": "台鐵查",
   "description": "即時查詢台鐵列車時刻與誤點資訊",
-  "start_url": "./",
+  "start_url": "/TRA-PWA-Search/index.html",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#1e40af",
