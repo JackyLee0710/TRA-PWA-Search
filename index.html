@@ -25,59 +25,7 @@
             max-height: 500px; /* 設定一個足夠大的高度 */
         }
     </style>
-</head>
-
-<script>
-    // 變數用於儲存瀏覽器發出的安裝事件
-    let deferredPrompt;
-    
-    // 取得按鈕元素
-    const installButton = document.getElementById('installButton');
-
-    // 1. 監聽 beforeinstallprompt 事件
-    window.addEventListener('beforeinstallprompt', (e) => {
-        // 阻止 Chrome 67 之前的版本自動顯示彈窗
-        e.preventDefault();
-        
-        // 儲存事件，以便之後可以手動觸發
-        deferredPrompt = e;
-        
-        // 顯示您的自訂安裝按鈕
-        installButton.style.display = 'block';
-
-        console.log('beforeinstallprompt event fired. Install button is now visible.');
-    });
-
-    // 2. 處理按鈕點擊事件
-    installButton.addEventListener('click', () => {
-        if (deferredPrompt) {
-            // 隱藏按鈕 (因為我們即將彈出提示)
-            installButton.style.display = 'none';
-            
-            // 觸發瀏覽器原生的安裝提示
-            deferredPrompt.prompt();
-            
-            // 監聽使用者對提示的反應
-            deferredPrompt.userChoice.then((choiceResult) => {
-                if (choiceResult.outcome === 'accepted') {
-                    console.log('User accepted the A2HS prompt');
-                } else {
-                    console.log('User dismissed the A2HS prompt');
-                }
-                // 安裝完成或被拒絕後，清除儲存的事件
-                deferredPrompt = null;
-            });
-        }
-    });
-
-    // 3. 監聽 PWA 安裝成功事件
-    window.addEventListener('appinstalled', (e) => {
-        console.log('PWA was successfully installed.');
-        // 確保安裝後按鈕消失
-        installButton.style.display = 'none';
-    });
-</script>
-    
+</head>    
 <body class="bg-gray-100 text-gray-800">
 
     <div class="container mx-auto p-4 md:p-8 max-w-4xl">
@@ -139,7 +87,56 @@
         <div id="message" class="text-center p-8 text-gray-500"></div>
 
     </div>
+<script>
+    // 變數用於儲存瀏覽器發出的安裝事件
+    let deferredPrompt;
+    
+    // 取得按鈕元素
+    const installButton = document.getElementById('installButton');
 
+    // 1. 監聽 beforeinstallprompt 事件
+    window.addEventListener('beforeinstallprompt', (e) => {
+        // 阻止 Chrome 67 之前的版本自動顯示彈窗
+        e.preventDefault();
+        
+        // 儲存事件，以便之後可以手動觸發
+        deferredPrompt = e;
+        
+        // 顯示您的自訂安裝按鈕
+        installButton.style.display = 'block';
+
+        console.log('beforeinstallprompt event fired. Install button is now visible.');
+    });
+
+    // 2. 處理按鈕點擊事件
+    installButton.addEventListener('click', () => {
+        if (deferredPrompt) {
+            // 隱藏按鈕 (因為我們即將彈出提示)
+            installButton.style.display = 'none';
+            
+            // 觸發瀏覽器原生的安裝提示
+            deferredPrompt.prompt();
+            
+            // 監聽使用者對提示的反應
+            deferredPrompt.userChoice.then((choiceResult) => {
+                if (choiceResult.outcome === 'accepted') {
+                    console.log('User accepted the A2HS prompt');
+                } else {
+                    console.log('User dismissed the A2HS prompt');
+                }
+                // 安裝完成或被拒絕後，清除儲存的事件
+                deferredPrompt = null;
+            });
+        }
+    });
+
+    // 3. 監聽 PWA 安裝成功事件
+    window.addEventListener('appinstalled', (e) => {
+        console.log('PWA was successfully installed.');
+        // 確保安裝後按鈕消失
+        installButton.style.display = 'none';
+    });
+</script>
     <script>
         // 【新增 Service Worker 註冊碼】
         if ('serviceWorker' in navigator) {
