@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>台鐵班次快速查詢</title>
+    <link rel="manifest" href="/manifest.json">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', 'Noto Sans TC', sans-serif;
+        }
+        /* 為了更好的 Autocomplete 樣式 */
+        input[list] {
+            background-color: white;
+        }
+        /* 展開/收合的動畫效果 */
+        .details-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.5s ease-in-out;
+        }
+        .details-content.expanded {
+            max-height: 500px; /* 設定一個足夠大的高度 */
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <div class="container mx-auto p-4 md:p-8 max-w-4xl">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-blue-800">台鐵班次快速查詢</h1>
+            <p class="text-gray-600 mt-2">即時查詢列車時刻、誤點資訊</p>
+        </header>
+
+        <div class="bg-white p-6 rounded-2xl shadow-lg mb-8">
+            <div class="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+                <div class="md:col-span-2">
+                    <label for="fromStation" class="block text-sm font-medium text-gray-700 mb-1">出發站</label>
+                    <input list="stationList" id="fromStation" name="fromStation" class="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500" placeholder="例如：竹北">
+                </div>
+                
+                <div class="text-center">
+                    <button id="swapStations" class="p-3 bg-gray-200 text-gray-600 hover:bg-blue-600 hover:text-white rounded-full transition-all duration-300 transform hover:rotate-180">
+                        <svg width="30" height="30" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 30 30">
+                            <path d="M13.78897,6.6557l0,-1.22748l-6.58448,3.80191l6.58448,3.80194l0,-1.3171c1.78674,-0.00084 4.92348,0.15187 4.92348,1.23411c0,1.51215 -3.27596,2.31884 -3.27596,2.31884l0,1.15941c0,0 7.35902,0.25146 7.35902,-5.34311c0,-4.39532 -6.30272,-4.56049 -9.00654,-4.42851z" stroke-width="0"/>
+                            <path transform="rotate(180 15 19.0714)" d="m13.78897,14.79844l0,-1.22748l-6.58448,3.80191l6.58448,3.80194l0,-1.3171c1.78674,-0.00084 4.92348,0.15186 4.92348,1.23411c0,1.51215 -3.27596,2.31884 -3.27596,2.31884l0,1.1594c0,0 7.35902,0.25146 7.35902,-5.34311c0,-4.39532 -6.30272,-4.56049 -9.00654,-4.42851z" stroke-width="0"/>
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="md:col-span-2">
+                    <label for="toStation" class="block text-sm font-medium text-gray-700 mb-1">目的地</label>
+                    <input list="stationList" id="toStation" name="toStation" class="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500" placeholder="例如：板橋">
+                </div>
+
+                <div class="md:col-span-2">
+                    <label for="searchDate" class="block text-sm font-medium text-gray-700 mb-1">日期</label>
+                    <input type="date" id="searchDate" class="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                </div>
+
+                <div class="md:col-span-2">
+                    <label for="searchTime" class="block text-sm font-medium text-gray-700 mb-1">時間</label>
+                    <input type="time" id="searchTime" class="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                </div>
+
+                <div class="md:col-span-1">
+                    <button id="searchBtn" class="w-full bg-blue-600 text-white p-3 rounded-lg font-semibold hover:bg-blue-700 transition duration-300 shadow-md">
+                        查詢
+                    </button>
+                </div>
+            </div>
+            <div class="mt-4 flex items-center justify-end">
+                <input type="checkbox" id="showAllTrains" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                <label for="showAllTrains" class="ml-2 block text-sm text-gray-900">顯示所有車種 (包含對號座)</label>
+            </div>
+            <datalist id="stationList"></datalist>
+        </div>
+
+        <div id="results" class="space-y-4">
+             </div>
+        
+        <div id="message" class="text-center p-8 text-gray-500"></div>
+
+    </div>
+
+    <script>
+        // 【新增 Service Worker 註冊碼】
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then(registration => {
+                        console.log('ServiceWorker 註冊成功，範圍: ', registration.scope);
+                    })
+                    .catch(error => {
+                        console.error('ServiceWorker 註冊失敗: ', error);
+                    });
+            });
+        }
+        // 【程式進入點開始】
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- DOM 元素 ---
+            const fromStationInput = document.getElementById('fromStation');
+            const toStationInput = document.getElementById('toStation');
+            const swapStationsBtn = document.getElementById('swapStations');
+            const searchDateInput = document.getElementById('searchDate');
+            const searchTimeInput = document.getElementById('searchTime');
+            const searchBtn = document.getElementById('searchBtn');
+            const showAllTrainsCheckbox = document.getElementById('showAllTrains');
+            const stationList = document.getElementById('stationList');
+            const resultsContainer = document.getElementById('results');
+            const messageDiv = document.getElementById('message');
+
+            // --- 資料 ---
+            const stations = [
+                  {"id":"0900","name":"基隆"},{"id":"0910","name":"三坑"},{"id":"0920","name":"八堵"},{"id":"0930","name":"七堵"},{"id":"0940","name":"百福"},{"id":"0950","name":"五堵"},{"id":"0960","name":"汐止"},{"id":"0970","name":"汐科"},{"id":"0980","name":"南港"},{"id":"0990","name":"松山"},{"id":"1000","name":"臺北"},{"id":"1001","name":"臺北-環島"},{"id":"1010","name":"萬華"},{"id":"1020","name":"板橋"},{"id":"1030","name":"浮洲"},{"id":"1040","name":"樹林"},{"id":"1050","name":"南樹林"},{"id":"1060","name":"山佳"},{"id":"1070","name":"鶯歌"},{"id":"1075","name":"鳳鳴"},{"id":"1080","name":"桃園"},{"id":"1090","name":"內壢"},{"id":"1100","name":"中壢"},{"id":"1110","name":"埔心"},{"id":"1120","name":"楊梅"},{"id":"1130","name":"富岡"},{"id":"1140","name":"新富"},{"id":"1150","name":"北湖"},{"id":"1160","name":"湖口"},{"id":"1170","name":"新豐"},{"id":"1180","name":"竹北"},{"id":"1190","name":"北新竹"},{"id":"1191","name":"千甲"},{"id":"1192","name":"新莊"},{"id":"1193","name":"竹中"},{"id":"1194","name":"六家"},{"id":"1201","name":"上員"},{"id":"1202","name":"榮華"},{"id":"1203","name":"竹東"},{"id":"1204","name":"橫山"},{"id":"1205","name":"九讚頭"},{"id":"1206","name":"合興"},{"id":"1207","name":"富貴"},{"id":"1208","name":"內灣"},{"id":"1210","name":"新竹"},{"id":"1220","name":"三姓橋"},{"id":"1230","name":"香山"},{"id":"1240","name":"崎頂"},{"id":"1250","name":"竹南"},{"id":"2110","name":"談文"},{"id":"2120","name":"大山"},{"id":"2130","name":"後龍"},{"id":"2140","name":"龍港"},{"id":"2150","name":"白沙屯"},{"id":"2160","name":"新埔"},{"id":"2170","name":"通霄"},{"id":"2180","name":"苑裡"},{"id":"2190","name":"日南"},{"id":"2200","name":"大甲"},{"id":"2210","name":"臺中港"},{"id":"2220","name":"清水"},{"id":"2230","name":"沙鹿"},{"id":"2240","name":"龍井"},{"id":"2250","name":"大肚"},{"id":"2260","name":"追分"},{"id":"3140","name":"造橋"},{"id":"3150","name":"豐富"},{"id":"3160","name":"苗栗"},{"id":"3170","name":"南勢"},{"id":"3180","name":"銅鑼"},{"id":"3190","name":"三義"},{"id":"3210","name":"泰安"},{"id":"3220","name":"后里"},{"id":"3230","name":"豐原"},{"id":"3240","name":"栗林"},{"id":"3250","name":"潭子"},{"id":"3260","name":"頭家厝"},{"id":"3270","name":"松竹"},{"id":"3280","name":"太原"},{"id":"3290","name":"精武"},{"id":"3300","name":"臺中"},{"id":"3310","name":"五權"},{"id":"3320","name":"大慶"},{"id":"3330","name":"烏日"},{"id":"3340","name":"新烏日"},{"id":"3350","name":"成功"},{"id":"3360","name":"彰化"},{"id":"3370","name":"花壇"},{"id":"3380","name":"大村"},{"id":"3390","name":"員林"},{"id":"3400","name":"永靖"},{"id":"3410","name":"社頭"},{"id":"3420","name":"田中"},{"id":"3430","name":"二水"},{"id":"3431","name":"源泉"},{"id":"3432","name":"濁水"},{"id":"3433","name":"龍泉"},{"id":"3434","name":"集集"},{"id":"3435","name":"水里"},{"id":"3436","name":"車埕"},{"id":"3450","name":"林內"},{"id":"3460","name":"石榴"},{"id":"3470","name":"斗六"},{"id":"3480","name":"斗南"},{"id":"3490","name":"石龜"},{"id":"4050","name":"大林"},{"id":"4060","name":"民雄"},{"id":"4070","name":"嘉北"},{"id":"4080","name":"嘉義"},{"id":"4090","name":"水上"},{"id":"4100","name":"南靖"},{"id":"4110","name":"後壁"},{"id":"4120","name":"新營"},{"id":"4130","name":"柳營"},{"id":"4140","name":"林鳳營"},{"id":"4150","name":"隆田"},{"id":"4160","name":"拔林"},{"id":"4170","name":"善化"},{"id":"4180","name":"南科"},{"id":"4190","name":"新市"},{"id":"4200","name":"永康"},{"id":"4210","name":"大橋"},{"id":"4220","name":"臺南"},{"id":"4250","name":"保安"},{"id":"4260","name":"仁德"},{"id":"4270","name":"中洲"},{"id":"4271","name":"長榮大學"},{"id":"4272","name":"沙崙"},{"id":"4290","name":"大湖"},{"id":"4300","name":"路竹"},{"id":"4310","name":"岡山"},{"id":"4320","name":"橋頭"},{"id":"4330","name":"楠梓"},{"id":"4340","name":"新左營"},{"id":"4350","name":"左營"},{"id":"4360","name":"內惟"},{"id":"4370","name":"美術館"},{"id":"4380","name":"鼓山"},{"id":"4390","name":"三塊厝"},{"id":"4400","name":"高雄"},{"id":"4410","name":"民族"},{"id":"4420","name":"科工館"},{"id":"4430","name":"正義"},{"id":"4440","name":"鳳山"},{"id":"4450","name":"後庄"},{"id":"4460","name":"九曲堂"},{"id":"4470","name":"六塊厝"},{"id":"5000","name":"屏東"},{"id":"5010","name":"歸來"},{"id":"5020","name":"麟洛"},{"id":"5030","name":"西勢"},{"id":"5040","name":"竹田"},{"id":"5050","name":"潮州"},{"id":"5060","name":"崁頂"},{"id":"5070","name":"南州"},{"id":"5080","name":"鎮安"},{"id":"5090","name":"林邊"},{"id":"5100","name":"佳冬"},{"id":"5110","name":"東海"},{"id":"5120","name":"枋寮"},{"id":"5130","name":"加祿"},{"id":"5140","name":"內獅"},{"id":"5160","name":"枋山"},{"id":"5170","name":"枋野"},{"id":"5190","name":"大武"},{"id":"5200","name":"瀧溪"},{"id":"5210","name":"金崙"},{"id":"5220","name":"太麻里"},{"id":"5230","name":"知本"},{"id":"5240","name":"康樂"},{"id":"5998","name":"南方小站"},{"id":"5999","name":"潮州基地"},{"id":"6000","name":"臺東"},{"id":"6010","name":"山里"},{"id":"6020","name":"鹿野"},{"id":"6030","name":"瑞源"},{"id":"6040","name":"瑞和"},{"id":"6050","name":"關山"},{"id":"6060","name":"海端"},{"id":"6070","name":"池上"},{"id":"6080","name":"富里"},{"id":"6090","name":"東竹"},{"id":"6100","name":"東里"},{"id":"6110","name":"玉里"},{"id":"6120","name":"三民"},{"id":"6130","name":"瑞穗"},{"id":"6140","name":"富源"},{"id":"6150","name":"大富"},{"id":"6160","name":"光復"},{"id":"6170","name":"萬榮"},{"id":"6180","name":"鳳林"},{"id":"6190","name":"南平"},{"id":"6200","name":"林榮新光"},{"id":"6210","name":"豐田"},{"id":"6220","name":"壽豐"},{"id":"6230","name":"平和"},{"id":"6240","name":"志學"},{"id":"6250","name":"吉安"},{"id":"7000","name":"花蓮"},{"id":"7010","name":"北埔"},{"id":"7020","name":"景美"},{"id":"7030","name":"新城"},{"id":"7040","name":"崇德"},{"id":"7050","name":"和仁"},{"id":"7060","name":"和平"},{"id":"7070","name":"漢本"},{"id":"7080","name":"武塔"},{"id":"7090","name":"南澳"},{"id":"7100","name":"東澳"},{"id":"7110","name":"永樂"},{"id":"7120","name":"蘇澳"},{"id":"7130","name":"蘇澳新"},{"id":"7140","name":"新馬"},{"id":"7150","name":"冬山"},{"id":"7160","name":"羅東"},{"id":"7170","name":"中里"},{"id":"7180","name":"二結"},{"id":"7190","name":"宜蘭"},{"id":"7200","name":"四城"},{"id":"7210","name":"礁溪"},{"id":"7220","name":"頂埔"},{"id":"7230","name":"頭城"},{"id":"7240","name":"外澳"},{"id":"7250","name":"龜山"},{"id":"7260","name":"大溪"},{"id":"7270","name":"大里"},{"id":"7280","name":"石城"},{"id":"7290","name":"福隆"},{"id":"7300","name":"貢寮"},{"id":"7310","name":"雙溪"},{"id":"7320","name":"牡丹"},{"id":"7331","name":"大華"},{"id":"7332","name":"十分"},{"id":"7333","name":"望古"},{"id":"7334","name":"嶺腳"},{"id":"7335","name":"平溪"},{"id":"7336","name":"菁桐"},{"id":"7350","name":"猴硐"},{"id":"7360","name":"瑞芳"},{"id":"7361","name":"海科館"},{"id":"7362","name":"八斗子"},{"id":"7380","name":"四腳亭"},{"id":"7390","name":"暖暖"}
+            ].sort((a, b) => a.id.localeCompare(b.id));
+
+            // --- 初始化 ---
+            function initialize() {
+                // 填充車站列表，並自動加入 '台' 的別名
+                stations.forEach(station => {
+                    // 加入官方名稱 (例如：臺北)
+                    const option = document.createElement('option');
+                    option.value = station.name;
+                    stationList.appendChild(option);
+
+                    // 如果站名包含 '臺'，則自動新增 '台' 的版本作為選項
+                    if (station.name.includes('臺')) {
+                        const aliasOption = document.createElement('option');
+                        aliasOption.value = station.name.replace(/臺/g, '台');
+                        stationList.appendChild(aliasOption);
+                    }
+                });
+
+                const now = new Date();
+                fromStationInput.value = '竹北';
+                toStationInput.value = '板橋';
+                searchDateInput.value = now.toISOString().split('T')[0];
+                searchTimeInput.value = now.toTimeString().split(' ')[0].substring(0, 5);
+                showAllTrainsCheckbox.checked = false;
+
+                performSearch();
+            }
+
+            // --- 事件監聽 ---
+            searchBtn.addEventListener('click', performSearch);
+            swapStationsBtn.addEventListener('click', () => {
+                [fromStationInput.value, toStationInput.value] = [toStationInput.value, fromStationInput.value];
+            });
+            showAllTrainsCheckbox.addEventListener('change', performSearch);
+
+
+            // --- 主要功能函式 ---
+            async function performSearch() {
+                resultsContainer.innerHTML = '';
+                messageDiv.textContent = '查詢中，請稍候...';
+
+                // 將使用者輸入的 '台' 標準化為 '臺'，以便後續查找
+                const fromStationName = fromStationInput.value.replace(/台/g, '臺');
+                const toStationName = toStationInput.value.replace(/台/g, '臺');
+
+                const fromStation = stations.find(s => s.name === fromStationName);
+                const toStation = stations.find(s => s.name === toStationName);
+
+                if (!fromStation || !toStation) {
+                    messageDiv.textContent = '請輸入有效的車站名稱。';
+                    return;
+                }
+                
+                if (fromStation.id === toStation.id) {
+                    messageDiv.textContent = '出發站與目的地不可相同。';
+                    return;
+                }
+
+                try {
+                    // *** 呼叫 API 函式 ***
+                    const timetable = await fetchTimetable(fromStation.id, toStation.id, searchDateInput.value);
+                    const delays = await fetchDelays();
+                    const prices = await fetchPrice(fromStation.id, toStation.id);
+
+                    const filteredTrains = timetable
+                        .filter(train => train.OriginStopTime?.DepartureTime >= searchTimeInput.value)
+                        .filter(train => {
+                            if (showAllTrainsCheckbox.checked) return true;
+                            // 使用可選串聯安全地檢查車種名稱
+                            const nonReservedTypes = ['自強(推拉式自強號且無自行車車廂)', '莒光', '區間'];
+                            return nonReservedTypes.some(type => train.DailyTrainInfo?.TrainTypeName?.Zh_tw?.includes(type));
+                        })
+                        .slice(0, 5);
+
+                    if (filteredTrains.length === 0) {
+                        messageDiv.textContent = '查詢無結果，請嘗試調整時間或日期。';
+                    } else {
+                        messageDiv.textContent = '';
+                        renderResults(filteredTrains, delays, prices);
+                    }
+
+                } catch (error) {
+                    console.error('查詢失敗:', error);
+                    // 這裡會顯示更詳細的錯誤訊息
+                    messageDiv.textContent = `查詢時發生錯誤: ${error.message}`;
+                }
+            }
+
+            function renderResults(trains, delays, prices) {
+                resultsContainer.innerHTML = '';
+                trains.forEach(train => {
+                    const delayInfo = delays.find(d => d.TrainNo === train.DailyTrainInfo.TrainNo);
+                    const delayMinutes = delayInfo ? delayInfo.DelayTime : 0;
+                    const trainTypeName = train.DailyTrainInfo?.TrainTypeName?.Zh_tw || '未知車種';
+                    const originStationName = train.OriginStopTime?.StationName?.Zh_tw || '未知車站';
+                    const destinationStationName = train.DestinationStopTime?.StationName?.Zh_tw || '未知車站';
+                    const startingStationName = train.DailyTrainInfo?.StartingStationName?.Zh_tw || '未知車站';
+                    const endingStationName = train.DailyTrainInfo?.EndingStationName?.Zh_tw || '未知車站';
+                    const trainDirection = train.DailyTrainInfo?.Direction;
+
+                    // 取得票價，同時檢查車種名稱與行駛方向
+                    // 修正: 在使用 includes 前，確保 priceInfo 是存在的
+                    const priceInfo = prices.find(p => p.FareClasses && p.FareClasses.some(className => trainTypeName.includes(className)) && p.Direction === trainDirection);
+                    const fareText = priceInfo ? `$${priceInfo.Price}` : '無票價資訊';
+                    const easycardPrice = priceInfo ? `$${priceInfo.EasyCard}` : '無票價資訊';
+                    const card = document.createElement('div');
+                    card.className = 'bg-white rounded-xl shadow-md overflow-hidden cursor-pointer transition-transform transform hover:scale-105';
+                    card.innerHTML = `
+                        <div class="p-4 md:p-6">
+                            <div class="grid grid-cols-12 gap-2 items-center">
+                                <div class="col-span-12 md:col-span-3 text-center md:text-left">
+                                    <span class="text-xl font-bold ${getTrainTypeColor(trainTypeName)}">${trainTypeName}</span>
+                                    <p class="text-sm text-gray-500">${train.DailyTrainInfo?.TrainNo || '未知'} 次</p>
+                                </div>
+                                <div class="col-span-5 md:col-span-3 text-center">
+                                    <p class="text-2xl font-semibold">${train.OriginStopTime?.DepartureTime || '--:--'}</p>
+                                    <p class="text-gray-600">${originStationName}</p>
+                                </div>
+                                <div class="col-span-2 md:col-span-3 text-center">
+                                    <p class="text-gray-400 text-sm">${calculateDuration(train.OriginStopTime?.DepartureTime, train.DestinationStopTime?.ArrivalTime)}</p>
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mx-auto text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                                    </svg>
+                                </div>
+                                <div class="col-span-5 md:col-span-3 text-center">
+                                    <p class="text-2xl font-semibold">${train.DestinationStopTime?.ArrivalTime || '--:--'}</p>
+                                    <p class="text-gray-600">${destinationStationName}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="details-content bg-gray-50 border-t border-gray-200">
+                            <div class="p-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                                <div><p class="text-sm text-gray-500">起訖站點</p><p class="font-semibold">${startingStationName} -> ${endingStationName}</p></div>
+                                <div><p class="text-sm text-gray-500">目前狀態</p><p class="font-semibold ${delayMinutes > 0 ? 'text-red-500' : 'text-green-500'}">${delayMinutes > 0 ? `晚 ${delayMinutes} 分` : '準點'}</p></div>
+                                <div><p class="text-sm text-gray-500">全票票價</p><p class="font-semibold">${fareText}</p></div>
+                                <div><p class="text-sm text-gray-500">悠遊卡價格</p><p class="font-semibold">${easycardPrice === '$0' ? '電子票券不可搭乘' : `${easycardPrice}`}</p></div>
+                        </div>
+                            </div>
+                        </div>
+                    `;
+                    card.addEventListener('click', () => card.querySelector('.details-content').classList.toggle('expanded'));
+                    resultsContainer.appendChild(card);
+                });
+            }
+
+            // --- 輔助函式 ---
+            function getTrainTypeColor(typeName) {
+                if (typeName.includes('普悠瑪') || typeName.includes('太魯閣')) return 'text-red-600';
+                if (typeName.includes('自強')) return 'text-orange-600';
+                if (typeName.includes('莒光')) return 'text-blue-600';
+                if (typeName.includes('區間')) return 'text-green-600';
+                return 'text-gray-800';
+            }
+
+            function calculateDuration(start, end) {
+                if (!start || !end) return '無資料';
+                const [startH, startM] = start.split(':').map(Number);
+                const [endH, endM] = end.split(':').map(Number);
+                let diff = (endH * 60 + endM) - (startH * 60 + startM);
+                if (diff < 0) diff += 24 * 60;
+                const h = Math.floor(diff / 60);
+                const m = diff % 60;
+                return `${h > 0 ? h + ' 小時 ' : ''}${m} 分`;
+            }
+
+            // --- 真實 API 串接 ---
+            // 步驟 1: 前往 https://tdx.transportdata.tw/ 註冊會員並取得 API Key (Client ID & Client Secret)
+            // 步驟 2: 將您的 Key 填入下方
+            const TDX_CLIENT_ID = 'jacky841026-3f8ab20a-1893-42cc';
+            const TDX_CLIENT_SECRET = 'd44c0656-19f7-4ae5-86a5-f8feba4ecf71';
+            let tdxAccessToken = null;
+
+            // 檢查 API Key 是否已填寫
+            function isKeyProvided() {
+                return TDX_CLIENT_ID !== '' && TDX_CLIENT_SECRET !== '';
+            }
+
+            // 獲取 TDX API 認證 Token
+            async function getTdxAccessToken() {
+                if (tdxAccessToken) return tdxAccessToken; // 如果已經有 token，直接回傳
+
+                const authUrl = 'https://tdx.transportdata.tw/auth/realms/TDXConnect/protocol/openid-connect/token';
+                const params = new URLSearchParams();
+                params.append('grant_type', 'client_credentials');
+                params.append('client_id', TDX_CLIENT_ID);
+                params.append('client_secret', TDX_CLIENT_SECRET);
+
+                const response = await fetch(authUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: params
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    if (response.status === 429) {
+                        // 當超過頻率限制時，拋出更明確的錯誤
+                        throw new Error(`API 請求頻率超過限制。請稍後再試。`);
+                    }
+                    throw new Error(`無法取得 TDX Access Token，請檢查您的 ID 和 Secret。錯誤訊息: ${errorData.message}`);
+                }
+                
+                const data = await response.json();
+                tdxAccessToken = data.access_token;
+                return tdxAccessToken;
+            }
+
+            // [真實] 獲取班次資料
+            async function fetchTimetable(fromStationId, toStationId, date) {
+                // 如果沒有填寫 API Key，則使用模擬資料並顯示提示
+                if (!isKeyProvided()) {
+                    console.warn("未提供 TDX API Key，將使用離線模擬資料。");
+                    messageDiv.innerHTML = `⚠️ 使用模擬資料中。<br>請前往 <a href="https://tdx.transportdata.tw/" target="_blank" class="text-blue-600 hover:underline">TDX 平台</a> 申請免費 API Key 以取得即時資訊。`;
+                    return mockFetchTimetable(fromStationId, toStationId, date);
+                }
+
+                try {
+                    const token = await getTdxAccessToken();
+                    const apiUrl = `https://tdx.transportdata.tw/api/basic/v2/Rail/TRA/DailyTimetable/OD/${fromStationId}/to/${toStationId}/${date}?$format=JSON`;
+                    
+                    const response = await fetch(apiUrl, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        // 💡 【修正點】: 顯示更詳細的錯誤訊息
+                        throw new Error(`無法從 TDX API 獲取班次資料。錯誤代碼: ${response.status}。詳細錯誤: ${errorData.message || '未知'}`);
+                    }
+                    return await response.json();
+                } catch (error) {
+                    console.error('查詢班次資料失敗:', error);
+                    // 💡 【修正點】: 將錯誤重新拋出，讓 performSearch 顯示更精確的錯誤訊息
+                    throw error;
+                }
+            }
+
+            // [真實] 獲取誤點資料
+            async function fetchDelays() {
+                 if (!isKeyProvided()) {
+                    return mockFetchDelays(); // Key 沒填就回傳模擬資料
+                }
+                try {
+                    const token = await getTdxAccessToken();
+                    const apiUrl = 'https://tdx.transportdata.tw/api/basic/v2/Rail/TRA/LiveBoard?&format=JSON';
+
+                    const response = await fetch(apiUrl, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (!response.ok) {
+                        console.error("無法獲取即時誤點資訊");
+                        return []; // 失敗時回傳空陣列
+                    }
+                    const liveData = await response.json();
+                    // 整理成我們需要的格式 { TrainNo, DelayTime }
+                    return liveData.map(item => ({ TrainNo: item.TrainNo, DelayTime: item.DelayTime }));
+                } catch (error) {
+                    console.error('查詢誤點資料失敗:', error);
+                    return [];
+                }
+            }
+            
+            // [真實] 獲取票價資料 (已修正：加入行駛方向參數)
+            async function fetchPrice(fromStationId, toStationId) {
+                if (!isKeyProvided()) {
+                    return mockFetchPrice(); // Key 沒填就回傳模擬資料
+                }
+                
+                // TDX v3 的 TrainType 編號對應
+                const trainTypeMap = {
+                    '1': ['太魯閣(太魯閣)', '太魯閣'],
+                    '2': ['普悠瑪(普悠瑪)', '普悠瑪'],
+                    '3': [
+                        '自強(DMU2800、2900、3000 型柴聯及 EMU 型電車)',
+                        '自強(推拉式自強號)',
+                        '自強(DMU3100 型有身障座位柴聯)',
+                        '自強(專開列車)',
+                        '自強(郵輪式列車)',
+                        '自強(商務專開列車)',
+                        '自強(推拉式自強號且無自行車車廂)',
+                        '自強(推拉式自強號且有自行車車廂)',
+                        '自強(EMU1200 型電車)',
+                        '自強(EMU300 型電車)',
+                        '自強(DMU2800 型柴聯)',
+                        '自強(DMU2900 型柴聯)',
+                        '自強(DMU3100 型柴聯)',
+                        '自強' // 新增的通用名稱
+                    ],
+                    '4': [
+                        '莒光(無身障座位)',
+                        '莒光(有身障座位)',
+                        '莒光(專開列車)',
+                        '莒光(郵輪式列車)',
+                        '莒光(無身障座位, 有自行車車廂)',
+                        '莒光(有身障座位, 有自行車車廂)',
+                        '莒光' // 新增的通用名稱
+                    ],
+                    '5': [
+                        '復興',
+                        '復興(專開列車)',
+                        '復興(郵輪式列車)',
+                        '復興'
+                    ],
+                    '6': [
+                        '區間(專開列車)',
+                        '區間',
+                        '區間(郵輪式列車)',
+                        '區間(有身障座位, 有自行車車廂)',
+                        '區間(EMU500 型)',
+                        '區間(EMU700 型)',
+                        '區間(EMU800 型)',
+                        '區間(EMU900 型)'
+                    ],
+                    '7': [
+                        '普快',
+                        '普快(專開列車)'
+                    ],
+                    '10': ['區間快'],
+                    '11': ['自強(3000)(EMU3000 型電車)']
+                };
+
+                try {
+                    const token = await getTdxAccessToken();
+                    const apiUrl = `https://tdx.transportdata.tw/api/basic/v3/Rail/TRA/ODFare/${fromStationId}/to/${toStationId}?$format=JSON`;
+                    
+                    const response = await fetch(apiUrl, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                         if (response.status === 429) {
+                            throw new Error(`API 請求頻率超過限制。請稍後再試。`);
+                        }
+                        console.error("無法獲取票價資訊，請檢查 API Key。", errorData);
+                        return []; 
+                    }
+                    const fareData = await response.json();
+                    
+                    // 檢查回傳資料的結構是否為預期物件，並從 ODFares 陣列中取資料
+                    if (!fareData || !Array.isArray(fareData.ODFares)) {
+                        console.error("TDX API 票價資料回傳格式非陣列", fareData);
+                        return [];
+                    }
+                    
+                    // 修正: 遍歷每個票價項目，並使用 `trainTypeMap` 找到對應的車種名稱
+                    return fareData.ODFares.map(item => {
+                        const fareClassNames = trainTypeMap[item.TrainType] || ['未知車種']; // 取得所有可能的車種名稱
+                        const price = (item.Fares && item.Fares.length > 0) ? item.Fares[0].Price : null;
+                        const direction = item.Direction; // 新增方向資訊
+                        const distance = item.TravelDistance; // 新增距離資訊
+
+                        // 計算悠遊卡票價
+                        const priceInterval = [50, 100, 200, 300, 99999]; // 收費里程級距
+                        const priceIntervalDiff = [50, 50, 100, 100, 99999];
+                        const priceByType = {'1': '電子票券不適用', '2': '電子票券不適用', '3': [2.18, 2.98, 2.81, 2.37, 2.20], '4': [2.18, 1.92, 1.81, 1.53, 1.42], '5': '電子票券不適用', '6': [2.18, 1.92, 1.81, 1.53, 1.42], '7': '電子票券不適用', '10': [2.18, 1.92, 1.81, 1.53, 1.42], '11': '電子票券不適用'}; // 車種收費方式
+                        let easycardPrice = 0;
+                        const priceType = priceByType[item.TrainType];
+                        if (priceType === '電子票券不適用') {
+                            easycardPrice = 0;
+                        }else{
+                            easycardPrice = (distance <= priceInterval[0]) ? Math.max(distance * priceType[0], priceType[0]*10) : 0;
+                            // 里程小於十公里時，最低票價為十公里
+
+                            // 用迴圈確認里程區間
+                            for (let i = 1; i < priceInterval.length && easycardPrice === 0; i++) {
+                                if (priceInterval[i] > distance) {
+                                    easycardPrice += (distance - priceInterval[i-1]) * priceByType[item.TrainType][i];
+                                    for (let j = 0; j < priceByType[item.TrainType].slice(0, i).length; j++) {
+                                        easycardPrice += priceByType[item.TrainType][j] * priceIntervalDiff[j];
+                                    }
+                                }
+                            }
+
+                        }
+
+                        // 回傳一個物件，包含所有可能的車種名稱
+                        return {
+                            FareClasses: fareClassNames,
+                            Price: price,
+                            Direction: direction,
+                            Distance: distance,
+                            EasyCard: Math.round(easycardPrice)
+                        };
+                    });
+                } catch (error) {
+                    console.error('獲取票價資訊失敗:', error);
+                    return [];
+                }
+            }
+
+            // --- 模擬 API (作為未填寫 Key 時的備用) ---
+            async function mockFetchTimetable(fromStationId, toStationId, date) {
+                await new Promise(resolve => setTimeout(resolve, 500));
+                const mockData = [
+                    { DailyTrainInfo: { TrainNo: '175', Direction: 0, TrainTypeID: '1102', TrainTypeName: { Zh_tw: '自強' } }, OriginStopTime: { StationID: '1170', StationName: { Zh_tw: '竹北' }, DepartureTime: '12:05', Platform: '1' }, DestinationStopTime: { StationID: '1020', StationName: { Zh_tw: '板橋' }, ArrivalTime: '13:01' }, Note: '每日行駛' },
+                    { DailyTrainInfo: { TrainNo: '119', Direction: 0, TrainTypeID: '1101', TrainTypeName: { Zh_tw: '自強' } }, OriginStopTime: { StationID: '1170', StationName: { Zh_tw: '竹北' }, DepartureTime: '12:38', Platform: '1' }, DestinationStopTime: { StationID: '1020', StationName: { Zh_tw: '板橋' }, ArrivalTime: '13:28' }, Note: '每日行駛' },
+                    { DailyTrainInfo: { TrainNo: '1251', Direction: 0, TrainTypeID: '1131', TrainTypeName: { Zh_tw: '區間' } }, OriginStopTime: { StationID: '1170', StationName: { Zh_tw: '竹北' }, DepartureTime: '13:02', Platform: '2A' }, DestinationStopTime: { StationID: '1020', StationName: { Zh_tw: '板橋' }, ArrivalTime: '14:10' }, Note: '' },
+                    { DailyTrainInfo: { TrainNo: '121', Direction: 0, TrainTypeID: '1100', TrainTypeName: { Zh_tw: '自強' } }, OriginStopTime: { StationID: '1170', StationName: { Zh_tw: '竹北' }, DepartureTime: '13:38', Platform: '1' }, DestinationStopTime: { StationID: '1020', StationName: { Zh_tw: '板橋' }, ArrivalTime: '14:28' }, Note: '每日行駛' },
+                    { DailyTrainInfo: { TrainNo: '273', Direction: 0, TrainTypeID: '1108', TrainTypeName: { Zh_tw: '普悠瑪' } }, OriginStopTime: { StationID: '1170', StationName: { Zh_tw: '竹北' }, DepartureTime: '14:18', Platform: '1' }, DestinationStopTime: { StationID: '1020', StationName: { Zh_tw: '板橋' }, ArrivalTime: '15:05' }, Note: '每日行駛' },
+                    { DailyTrainInfo: { TrainNo: '1255', Direction: 0, TrainTypeID: '1131', TrainTypeName: { Zh_tw: '區間' } }, OriginStopTime: { StationID: '1170', StationName: { Zh_tw: '竹北' }, DepartureTime: '14:26', Platform: '2A' }, DestinationStopTime: { StationID: '1020', StationName: { Zh_tw: '板橋' }, ArrivalTime: '15:35' }, Note: '每日行駛' },
+                    { DailyTrainInfo: { TrainNo: '123', Direction: 0, TrainTypeID: '1101', TrainTypeName: { Zh_tw: '自強' } }, OriginStopTime: { StationID: '1170', StationName: { Zh_tw: '竹北' }, DepartureTime: '14:38', Platform: '1' }, DestinationStopTime: { StationID: '1020', StationName: { Zh_tw: '板橋' }, ArrivalTime: '15:28' }, Note: '逢週五至日行駛。' },
+                    { DailyTrainInfo: { TrainNo: '521', Direction: 0, TrainTypeID: '1110', TrainTypeName: { Zh_tw: '莒光' } }, OriginStopTime: { StationID: '1170', StationName: { Zh_tw: '竹北' }, DepartureTime: '15:05', Platform: '1' }, DestinationStopTime: { StationID: '1020', StationName: { Zh_tw: '板橋' }, ArrivalTime: '16:15' }, Note: '逢週五至日行駛。' },
+                ];
+                return mockData.filter(train => 
+                    train.OriginStopTime.StationName.Zh_tw === stations.find(s=>s.id === fromStationId).name &&
+                    train.DestinationStopTime.StationName.Zh_tw === stations.find(s=>s.id === toStationId).name
+                );
+            }
+            
+            async function mockFetchDelays() {
+                await new Promise(resolve => setTimeout(resolve, 200));
+                return [
+                    { TrainNo: '175', DelayTime: 0 }, { TrainNo: '119', DelayTime: 5 },
+                    { TrainNo: '273', DelayTime: 0 }, { TrainNo: '521', DelayTime: 12 },
+                ];
+            }
+
+            async function mockFetchPrice() {
+                await new Promise(resolve => setTimeout(resolve, 200));
+                return [
+                    { FareClasses: ['普悠瑪(普悠瑪)', '普悠瑪'], Price: 150, Direction: 0 },
+                    { FareClasses: ['自強(推拉式自強號且無自行車車廂)', '自強'], Price: 140, Direction: 0 },
+                    { FareClasses: ['莒光'], Price: 108, Direction: 0 },
+                    { FareClasses: ['區間'], Price: 80, Direction: 0 }
+                ];
+            }
+
+            // --- 程式進入點 ---
+            initialize();
+        });
+    </script>
+</body>
+</html>

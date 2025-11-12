@@ -1,0 +1,21 @@
+{
+  "name": "台鐵快速查",
+  "short_name": "台鐵查",
+  "description": "即時查詢台鐵列車時刻與誤點資訊",
+  "start_url": "./TRA_search_v3.2.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1e40af",
+  "icons": [
+    {
+      "src": "/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
