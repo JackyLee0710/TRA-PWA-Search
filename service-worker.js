@@ -1,13 +1,13 @@
 const CACHE_NAME = 'tra-search-cache-v1';
 const urlsToCache = [
-    './TRA_search_v3.2.html',
+    './index.html',
     './manifest.json',
     // 雖然外部資源一般不快取，但為了功能運行，我們快取主要的 CSS 和 JS
     'https://cdn.tailwindcss.com',
-    'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap'
+    'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap',
     // 請記得把你的圖示檔案路徑也加進來，例如：
-    // './icon-192x192.png',
-    // './icon-512x512.png'
+    './icon-192x192.png',
+    './icon-512x512.png'
 ];
 
 // 安裝 Service Worker 並快取資源
