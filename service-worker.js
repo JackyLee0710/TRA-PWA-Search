@@ -3,7 +3,7 @@ const urlsToCache = [
     './index.html',
     './manifest.json',
     // 雖然外部資源一般不快取，但為了功能運行，我們快取主要的 CSS 和 JS
-    'https://cdn.tailwindcss.com',
+    //'https://cdn.tailwindcss.com',
     'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap',
     // 請記得把你的圖示檔案路徑也加進來，例如：
     './icon-192x192.png',
@@ -13,11 +13,20 @@ const urlsToCache = [
 // 安裝 Service Worker 並快取資源
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => {
-        console.log('Opened cache');
-        return cache.addAll(urlsToCache);
-      })
+    caches.open(CACHE_NAME).then((cache) => {
+      // 1. 快取內部資源 (使用 cache.addAll)
+      const internalCachePromise = cache.addAll(urlsToCache);
+      
+      // 2. 單獨快取跨域資源 (使用 fetch 配合 no-cors)
+      const cdnCachePromise = fetch('https://cdn.tailwindcss.com/', { mode: 'no-cors' })
+        .then(response => {
+          // 由於是 no-cors，response.ok 可能是 false，但仍可以快取
+          return cache.put('https://cdn.tailwindcss.com/', response);
+        });
+
+      // 等待所有快取完成
+      return Promise.all([internalCachePromise, cdnCachePromise]);
+    })
   );
 });
 
