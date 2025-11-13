@@ -357,29 +357,46 @@
                     card.querySelector('.track-btn').addEventListener('click', async (e) => {
                         e.stopPropagation(); // 阻止卡片展開
                         const trainNo = e.currentTarget.dataset.trainNo;
-
-                        if (isTrainTracking(trainNo)) {
+                        const isCurrentlyTracking = isTrainTracking(trainNo);
+                        const button = e.currentTarget; // 捕捉按鈕元素，確保引用不會丟失
+                        // 【修正點 1：確保 Station ID 查找正確】
+                        // 1. 取得使用者輸入的車站名稱
+                        const currentFromStationName = fromStationInput.value.replace(/台/g, '臺');
+                        const currentToStationName = toStationInput.value.replace(/台/g, '臺');
+                        
+                        // 2. 透過名稱查找實際的 Station ID 物件
+                        const fromStation = stations.find(s => s.name === currentFromStationName);
+                        const toStation = stations.find(s => s.name === currentToStationName);
+            
+                        if (!fromStation || !toStation) {
+                             showToast('請先輸入有效的起站和迄站名稱。', 'error');
+                             return;
+                        }
+                        
+                        if (isCurrentlyTracking) {
                             // 移除追蹤
                             updateTrackingList(trainNo, null, null, 'remove');
-                            e.currentTarget.classList.remove('text-red-500', 'bg-red-100', 'hover:bg-red-200');
-                            e.currentTarget.classList.add('text-gray-400', 'bg-gray-100', 'hover:bg-blue-200', 'hover:text-blue-600');
-                            // 【修正點 B：新增取消追蹤提示】
-                            showToast(`${trainNo} 次列車追蹤已取消。`, 'warn'); 
+                            // 【修正點 2：UI 更新，使用捕捉到的 button 變數】
+                            button.classList.remove('text-red-500', 'bg-red-100', 'hover:bg-red-200');
+                            button.classList.add('text-gray-400', 'bg-gray-100', 'hover:bg-blue-200', 'hover:text-blue-600');
+                            
+                            // ... (SVG 圖示切換邏輯) ...
+                            showToast(`${trainNo} 次列車追蹤已取消。`, 'warn');
 
                         } else {
                             // 新增追蹤
                             const permissionGranted = await requestNotificationPermission();
+                            
                             if (permissionGranted) {
-                                // ... (省略車站 ID 查找程式碼) ...
-                                if (fromStation && toStation) {
-                                     updateTrackingList(trainNo, fromStation.id, toStation.id, 'add');
-                                    e.currentTarget.classList.remove('text-gray-400', 'bg-gray-100', 'hover:bg-blue-200', 'hover:text-blue-600');
-                                    e.currentTarget.classList.add('text-red-500', 'bg-red-100', 'hover:bg-red-200');
-                                    // 【修正點 B：新增設定追蹤提示】
-                                    showToast(`${trainNo} 次列車追蹤已啟用！`, 'success');
-                                } else {
-                                    showToast('無法識別車站 ID，請確認車站名稱是否正確。', 'error');
-                                }
+                                // 【修正點 1：傳遞正確的 Station ID (fromStation.id)】
+                                updateTrackingList(trainNo, fromStation.id, toStation.id, 'add');
+                                
+                                // 【修正點 2：UI 更新，使用捕捉到的 button 變數】
+                                button.classList.remove('text-gray-400', 'bg-gray-100', 'hover:bg-blue-200', 'hover:text-blue-600');
+                                button.classList.add('text-red-500', 'bg-red-100', 'hover:bg-red-200');
+                                
+                                // ... (SVG 圖示切換邏輯) ...
+                                showToast(`${trainNo} 次列車追蹤已啟用！`, 'success');
                             } else {
                                 showToast('無法設定追蹤，請授予通知權限。', 'error');
                             }
