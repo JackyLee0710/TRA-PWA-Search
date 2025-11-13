@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tra-search-cache-v1';
+const CACHE_NAME = 'tra-search-cache-v2';
 const urlsToCache = [
     './index.html',
     './manifest.json',
@@ -177,20 +177,22 @@ async function checkAndNotify() {
         // 3. 判斷是否要發送通知
         
         // a) 列車已抵達或已過站，移除追蹤
-        if (remainingMins <= -5) { // 預計抵達時間已過 5 分鐘
+if (remainingMins <= -5) {
              const title = `⚠️ 列車 ${item.trainNo} 次已過站`;
              const body = `列車已於約 ${Math.abs(remainingMins)} 分鐘前抵達 ${stationMap[item.fromStationId]}。已自動移除追蹤。`;
-             self.registration.showNotification(title, { body: body, tag: `tra-track-${item.trainNo}`, icon: '/icon.png' });
-             trackingList = trackingList.filter(t => t.trainNo !== item.trainNo); // 從 SW 內部清單移除
-             // 💡 理想上需將變動通知主頁面，但此處為簡化，只移除 SW 內部清單
+             // 【修正點 D：修正通知圖示路徑】
+             self.registration.showNotification(title, { body: body, tag: `tra-track-${item.trainNo}`, icon: './icon-192x192.png' });
+             trackingList = trackingList.filter(t => t.trainNo !== item.trainNo);
              continue;
         }
 
         // b) 預計 5, 10, 15 分鐘後到達使用者乘車站
-        if (remainingMins > 0 && (remainingMins === 5 || remainingMins === 10 || remainingMins === 15 || remainingMins === 30)) {
-            const title = `🔔 列車 ${item.trainNo} 次即將抵達 ${stationMap[item.fromStationId]}`;
+if (remainingMins > 0 && (remainingMins === 5 || remainingMins === 10 || remainingMins === 15 || remainingMins === 30)) {
+            const trainTypeName = timetable.DailyTrainInfo.TrainTypeName.Zh_tw;
+            const title = `🔔 ${trainTypeName} ${item.trainNo} 次即將抵達 ${stationMap[item.fromStationId]}`;
             const body = `還有 ${remainingMins} 分鐘到達 (${delayMinutes > 0 ? `晚 ${delayMinutes} 分` : '準點'})。\n目前駛往 ${nextStationName}`;
-            self.registration.showNotification(title, { body: body, tag: `tra-track-${item.trainNo}`, renotify: true, icon: '/icon.png' });
+            // 【修正點 D：修正通知圖示路徑】
+            self.registration.showNotification(title, { body: body, tag: `tra-track-${item.trainNo}`, renotify: true, icon: './icon-192x192.png' });
         }
     }
 }
