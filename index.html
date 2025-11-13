@@ -264,8 +264,12 @@
 
             function renderResults(trains, delays, prices) {
                 resultsContainer.innerHTML = '';
+                const currentFromStationId = document.getElementById('fromStation').value;
+                const currentToStationId = document.getElementById('toStation').value;
+
                 trains.forEach(train => {
-                    const delayInfo = delays.find(d => d.TrainNo === train.DailyTrainInfo.TrainNo);
+                    const trainNo = train.DailyTrainInfo.TrainNo;
+                    const delayInfo = delays.find(d => d.TrainNo === trainNo);
                     const delayMinutes = delayInfo ? delayInfo.DelayTime : 0;
                     const trainTypeName = train.DailyTrainInfo?.TrainTypeName?.Zh_tw || '未知車種';
                     const originStationName = train.OriginStopTime?.StationName?.Zh_tw || '未知車站';
@@ -275,18 +279,25 @@
                     const trainDirection = train.DailyTrainInfo?.Direction;
 
                     // 取得票價，同時檢查車種名稱與行駛方向
-                    // 修正: 在使用 includes 前，確保 priceInfo 是存在的
                     const priceInfo = prices.find(p => p.FareClasses && p.FareClasses.some(className => trainTypeName.includes(className)) && p.Direction === trainDirection);
                     const fareText = priceInfo ? `$${priceInfo.Price}` : '無票價資訊';
                     const easycardPrice = priceInfo ? `$${priceInfo.EasyCard}` : '無票價資訊';
+                    
+                    const isTracking = isTrainTracking(trainNo);
                     const card = document.createElement('div');
                     card.className = 'bg-white rounded-xl shadow-md overflow-hidden cursor-pointer transition-transform transform hover:scale-105';
                     card.innerHTML = `
-                        <div class="p-4 md:p-6">
+                        <div class="p-4 md:p-6 relative">
+                            <button data-train-no="${trainNo}" class="track-btn absolute top-3 right-3 p-2 rounded-full transition-colors ${isTracking ? 'text-red-500 bg-red-100 hover:bg-red-200' : 'text-gray-400 bg-gray-100 hover:bg-blue-200 hover:text-blue-600'}">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="${isTracking ? 'currentColor' : 'none'}" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${isTracking ? 'M10 21h7a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2h3zm2-14V5m0 0a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2h7a2 2 0 002-2v-3' : 'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.054 5.925 5 8.528 5 11v3.159c0 .538-.214 1.055-.595 1.436L3 17h5m5 0a1 1 0 01-1 1H8a1 1 0 01-1-1m1-4h.01'}"/>
+                                </svg>
+                            </button>
+
                             <div class="grid grid-cols-12 gap-2 items-center">
                                 <div class="col-span-12 md:col-span-3 text-center md:text-left">
                                     <span class="text-xl font-bold ${getTrainTypeColor(trainTypeName)}">${trainTypeName}</span>
-                                    <p class="text-sm text-gray-500">${train.DailyTrainInfo?.TrainNo || '未知'} 次</p>
+                                    <p class="text-sm text-gray-500">${trainNo} 次</p>
                                 </div>
                                 <div class="col-span-5 md:col-span-3 text-center">
                                     <p class="text-2xl font-semibold">${train.OriginStopTime?.DepartureTime || '--:--'}</p>
@@ -314,7 +325,45 @@
                             </div>
                         </div>
                     `;
-                    card.addEventListener('click', () => card.querySelector('.details-content').classList.toggle('expanded'));
+                    card.addEventListener('click', (e) => {
+                        // 點擊按鈕不觸發卡片展開/收合
+                        if (!e.target.closest('.track-btn')) {
+                            card.querySelector('.details-content').classList.toggle('expanded');
+                        }
+                    });
+
+                    // 🚩 追蹤按鈕事件監聽
+                    card.querySelector('.track-btn').addEventListener('click', async (e) => {
+                        e.stopPropagation(); // 阻止卡片展開
+
+                        if (isTracking) {
+                            // 移除追蹤
+                            updateTrackingList(trainNo, null, null, 'remove');
+                            e.currentTarget.classList.remove('text-red-500', 'bg-red-100', 'hover:bg-red-200');
+                            e.currentTarget.classList.add('text-gray-400', 'bg-gray-100', 'hover:bg-blue-200', 'hover:text-blue-600');
+                        } else {
+                            // 新增追蹤
+                            const permissionGranted = await requestNotificationPermission();
+                            if (permissionGranted) {
+                                // 取得原始站名 (因為 LocalStorage 儲存的是 ID，但要通知 Service Worker 原始站名)
+                                const originalFromStation = stations.find(s => s.id === fromStationInput.value);
+                                const originalToStation = stations.find(s => s.id === toStationInput.value);
+
+                                // 找到 ID
+                                const fromStation = stations.find(s => s.name === fromStationInput.value.replace(/台/g, '臺'));
+                                const toStation = stations.find(s => s.name === toStationInput.value.replace(/台/g, '臺'));
+
+                                if (fromStation && toStation) {
+                                     updateTrackingList(trainNo, fromStation.id, toStation.id, 'add');
+                                    e.currentTarget.classList.remove('text-gray-400', 'bg-gray-100', 'hover:bg-blue-200', 'hover:text-blue-600');
+                                    e.currentTarget.classList.add('text-red-500', 'bg-red-100', 'hover:bg-red-200');
+                                } else {
+                                    alert('無法識別車站 ID，請確認車站名稱是否正確。');
+                                }
+                            }
+                        }
+                    });
+
                     resultsContainer.appendChild(card);
                 });
             }
@@ -338,7 +387,62 @@
                 const m = diff % 60;
                 return `${h > 0 ? h + ' 小時 ' : ''}${m} 分`;
             }
-
+            // --- 新增追蹤功能相關函式 ---
+            
+            // 1. 檢查並請求通知權限
+            async function requestNotificationPermission() {
+                if (!('Notification' in window)) {
+                    alert('您的瀏覽器不支援通知功能。');
+                    return false;
+                }
+                const permission = await Notification.requestPermission();
+                if (permission !== 'granted') {
+                    alert('通知權限被拒絕，無法使用列車追蹤功能。');
+                    return false;
+                }
+                return true;
+            }
+            
+            // 2. 管理 LocalStorage 中的追蹤清單
+            const TRACKING_KEY = 'tra_tracking_list';
+            
+            function getTrackingList() {
+                const list = localStorage.getItem(TRACKING_KEY);
+                return list ? JSON.parse(list) : [];
+            }
+            
+            function updateTrackingList(trainNo, fromStationId, toStationId, action = 'add') {
+                let list = getTrackingList();
+                const trainIndex = list.findIndex(t => t.trainNo === trainNo);
+            
+                if (action === 'add' && trainIndex === -1) {
+                    list.push({
+                        trainNo: trainNo,
+                        fromStationId: fromStationId,
+                        toStationId: toStationId,
+                        timestamp: Date.now()
+                    });
+                    console.log(`已加入追蹤: ${trainNo}`);
+                } else if (action === 'remove' && trainIndex !== -1) {
+                    list.splice(trainIndex, 1);
+                    console.log(`已移除追蹤: ${trainNo}`);
+                }
+            
+                localStorage.setItem(TRACKING_KEY, JSON.stringify(list));
+                // 告知 Service Worker 清單已更新 (這部分將在 SW 註冊後處理，此處先保持簡潔)
+                if (navigator.serviceWorker.controller) {
+                     navigator.serviceWorker.controller.postMessage({
+                        type: 'TRACKING_LIST_UPDATED',
+                        list: list
+                    });
+                }
+                
+                return list;
+            }
+            
+            function isTrainTracking(trainNo) {
+                return getTrackingList().some(t => t.trainNo === trainNo);
+            }
             // --- 真實 API 串接 ---
             // 步驟 1: 前往 https://tdx.transportdata.tw/ 註冊會員並取得 API Key (Client ID & Client Secret)
             // 步驟 2: 將您的 Key 填入下方
