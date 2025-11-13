@@ -91,7 +91,7 @@ async function fetchTrainTimetable(trainNo, date) {
     try {
         const token = await getTdxAccessToken();
         if (!token) return null;
-        const apiUrl = `https://tdx.transportdata.tw/api/basic/v2/Rail/TRA/DailyTimetable/TrainNo/${trainNo}/${date}?$format=JSON`;
+        const apiUrl = `https://tdx.transportdata.tw/api/basic/v3/Rail/TRA/TrainLiveBoard/TrainNo/${trainNo}?$format=JSON`;
 
         const response = await fetch(apiUrl, {
             headers: { 'Authorization': `Bearer ${token}` }
