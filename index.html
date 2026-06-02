@@ -24,6 +24,20 @@
         .details-content.expanded {
             max-height: 1500px; /* 增加高度以容納路線圖 */
         }
+        /* 路線地圖滾動條美化 */
+        .route-timeline-container::-webkit-scrollbar {
+            width: 6px;
+        }
+        .route-timeline-container::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .route-timeline-container::-webkit-scrollbar-thumb {
+            background: #cbd5e1; /* slate-300 */
+            border-radius: 3px;
+        }
+        .route-timeline-container::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; /* slate-405 */
+        }
         /* 當 PWA 以獨立視窗 (standalone) 模式運行時，隱藏這個按鈕 */
         @media all and (display-mode: standalone), (display-mode: fullscreen), (display-mode: minimal-ui) {
             #installButton {
@@ -170,6 +184,9 @@
             const resultsContainer = document.getElementById('results');
             const messageDiv = document.getElementById('message');
 
+            // --- 車次完整路線快取 ---
+            const globalRouteCache = {};
+
             // --- 資料 ---
             const stations = [
                   {"id":"0900","name":"基隆"},{"id":"0910","name":"三坑"},{"id":"0920","name":"八堵"},{"id":"0930","name":"七堵"},{"id":"0940","name":"百福"},{"id":"0950","name":"五堵"},{"id":"0960","name":"汐止"},{"id":"0970","name":"汐科"},{"id":"0980","name":"南港"},{"id":"0990","name":"松山"},{"id":"1000","name":"臺北"},{"id":"1001","name":"臺北-環島"},{"id":"1010","name":"萬華"},{"id":"1020","name":"板橋"},{"id":"1030","name":"浮洲"},{"id":"1040","name":"樹林"},{"id":"1050","name":"南樹林"},{"id":"1060","name":"山佳"},{"id":"1070","name":"鶯歌"},{"id":"1075","name":"鳳鳴"},{"id":"1080","name":"桃園"},{"id":"1090","name":"內壢"},{"id":"1100","name":"中壢"},{"id":"1110","name":"埔心"},{"id":"1120","name":"楊梅"},{"id":"1130","name":"富岡"},{"id":"1140","name":"新富"},{"id":"1150","name":"北湖"},{"id":"1160","name":"湖口"},{"id":"1170","name":"新豐"},{"id":"1180","name":"竹北"},{"id":"1190","name":"北新竹"},{"id":"1191","name":"千甲"},{"id":"1192","name":"新莊"},{"id":"1193","name":"竹中"},{"id":"1194","name":"六家"},{"id":"1201","name":"上員"},{"id":"1202","name":"榮華"},{"id":"1203","name":"竹東"},{"id":"1204","name":"橫山"},{"id":"1205","name":"九讚頭"},{"id":"1206","name":"合興"},{"id":"1207","name":"富貴"},{"id":"1208","name":"內灣"},{"id":"1210","name":"新竹"},{"id":"1220","name":"三姓橋"},{"id":"1230","name":"香山"},{"id":"1240","name":"崎頂"},{"id":"1250","name":"竹南"},{"id":"2110","name":"談文"},{"id":"2120","name":"大山"},{"id":"2130","name":"後龍"},{"id":"2140","name":"龍港"},{"id":"2150","name":"白沙屯"},{"id":"2160","name":"新埔"},{"id":"2170","name":"通霄"},{"id":"2180","name":"苑裡"},{"id":"2190","name":"日南"},{"id":"2200","name":"大甲"},{"id":"2210","name":"臺中港"},{"id":"2220","name":"清水"},{"id":"2230","name":"沙鹿"},{"id":"2240","name":"龍井"},{"id":"2250","name":"大肚"},{"id":"2260","name":"追分"},{"id":"3140","name":"造橋"},{"id":"3150","name":"豐富"},{"id":"3160","name":"苗栗"},{"id":"3170","name":"南勢"},{"id":"3190","name":"三義"},{"id":"3210","name":"泰安"},{"id":"3220","name":"后里"},{"id":"3230","name":"豐原"},{"id":"3240","name":"栗林"},{"id":"3250","name":"潭子"},{"id":"3260","name":"頭家厝"},{"id":"3270","name":"松竹"},{"id":"3280","name":"太原"},{"id":"3290","name":"精武"},{"id":"3300","name":"臺中"},{"id":"3310","name":"五權"},{"id":"3320","name":"大慶"},{"id":"3330","name":"烏日"},{"id":"3340","name":"新烏日"},{"id":"3350","name":"成功"},{"id":"3360","name":"彰化"},{"id":"3370","name":"花壇"},{"id":"3380","name":"大村"},{"id":"3390","name":"員林"},{"id":"3400","name":"永靖"},{"id":"3410","name":"社頭"},{"id":"3420","name":"田中"},{"id":"3430","name":"二水"},{"id":"3431","name":"源泉"},{"id":"3432","name":"濁水"},{"id":"3433","name":"龍泉"},{"id":"3434","name":"集集"},{"id":"3435","name":"水里"},{"id":"3436","name":"車埕"},{"id":"3450","name":"林內"},{"id":"3460","name":"石榴"},{"id":"3470","name":"斗六"},{"id":"3480","name":"斗南"},{"id":"3490","name":"石龜"},{"id":"4050","name":"大林"},{"id":"4060","name":"民雄"},{"id":"4070","name":"嘉北"},{"id":"4080","name":"嘉義"},{"id":"4090","name":"水上"},{"id":"4100","name":"南靖"},{"id":"4110","name":"後壁"},{"id":"4120","name":"新營"},{"id":"4130","name":"柳營"},{"id":"4140","name":"林鳳營"},{"id":"4150","name":"隆田"},{"id":"4160","name":"拔林"},{"id":"4170","name":"善化"},{"id":"4180","name":"南科"},{"id":"4190","name":"新市"},{"id":"4200","name":"永康"},{"id":"4210","name":"大橋"},{"id":"4220","name":"臺南"},{"id":"4250","name":"保安"},{"id":"4260","name":"仁德"},{"id":"4270","name":"中洲"},{"id":"4271","name":"長榮大學"},{"id":"4272","name":"沙崙"},{"id":"4290","name":"大湖"},{"id":"4300","name":"路竹"},{"id":"4310","name":"岡山"},{"id":"4320","name":"橋頭"},{"id":"4330","name":"楠梓"},{"id":"4340","name":"新左營"},{"id":"4350","name":"左營"},{"id":"4360","name":"內惟"},{"id":"4370","name":"美術館"},{"id":"4380","name":"鼓山"},{"id":"4390","name":"三塊厝"},{"id":"4400","name":"高雄"},{"id":"4410","name":"民族"},{"id":"4420","name":"科工館"},{"id":"4430","name":"正義"},{"id":"4440","name":"鳳山"},{"id":"4450","name":"後庄"},{"id":"4460","name":"九曲堂"},{"id":"4470","name":"六塊厝"},{"id":"5000","name":"屏東"},{"id":"5010","name":"歸來"},{"id":"5020","name":"麟洛"},{"id":"5030","name":"西勢"},{"id":"5040","name":"竹田"},{"id":"5050","name":"潮州"},{"id":"5060","name":"崁頂"},{"id":"5070","name":"南州"},{"id":"5080","name":"鎮安"},{"id":"5090","name":"林邊"},{"id":"5100","name":"佳冬"},{"id":"5110","name":"東海"},{"id":"5120","name":"枋寮"},{"id":"5130","name":"加祿"},{"id":"5140","name":"內獅"},{"id":"5160","name":"枋山"},{"id":"5170","name":"枋野"},{"id":"5190","name":"大武"},{"id":"5200","name":"瀧溪"},{"id":"5210","name":"金崙"},{"id":"5220","name":"太麻里"},{"id":"5230","name":"知本"},{"id":"5240","name":"康樂"},{"id":"5998","name":"南方小站"},{"id":"5999","name":"潮州基地"},{"id":"6000","name":"臺東"},{"id":"6010","name":"山里"},{"id":"6020","name":"鹿野"},{"id":"6030","name":"瑞源"},{"id":"6040","name":"瑞和"},{"id":"6050","name":"關山"},{"id":"6060","name":"海端"},{"id":"6070","name":"池上"},{"id":"6080","name":"富里"},{"id":"6090","name":"東竹"},{"id":"6100","name":"東里"},{"id":"6110","name":"玉里"},{"id":"6120","name":"三民"},{"id":"6130","name":"瑞穗"},{"id":"6140","name":"富源"},{"id":"6150","name":"大富"},{"id":"6160","name":"光復"},{"id":"6170","name":"萬榮"},{"id":"6180","name":"鳳林"},{"id":"6190","name":"南平"},{"id":"6200","name":"林榮新光"},{"id":"6210","name":"壽豐"},{"id":"6220","name":"壽豐"},{"id":"6230","name":"平和"},{"id":"6240","name":"志學"},{"id":"6250","name":"吉安"},{"id":"7000","name":"花蓮"},{"id":"7010","name":"北埔"},{"id":"7020","name":"景美"},{"id":"7030","name":"新城"},{"id":"7040","name":"崇德"},{"id":"7050","name":"和仁"},{"id":"7060","name":"和平"},{"id":"7070","name":"漢本"},{"id":"7080","name":"武塔"},{"id":"7090","name":"南澳"},{"id":"7100","name":"東澳"},{"id":"7110","name":"永樂"},{"id":"7120","name":"蘇澳"},{"id":"7130","name":"蘇澳新"},{"id":"7140","name":"新馬"},{"id":"7150","name":"冬山"},{"id":"7160","name":"羅東"},{"id":"7170","name":"中里"},{"id":"7180","name":"二結"},{"id":"7190","name":"宜蘭"},{"id":"7200","name":"四城"},{"id":"7210","name":"礁溪"},{"id":"7220","name":"頂埔"},{"id":"7230","name":"頭城"},{"id":"7240","name":"外澳"},{"id":"7250","name":"龜山"},{"id":"7260","name":"大溪"},{"id":"7270","name":"大里"},{"id":"7280","name":"石城"},{"id":"7290","name":"福隆"},{"id":"7300","name":"貢寮"},{"id":"7310","name":"雙溪"},{"id":"7320","name":"牡丹"},{"id":"7331","name":"大華"},{"id":"7332","name":"十分"},{"id":"7333","name":"望古"},{"id":"7334","name":"嶺腳"},{"id":"7335","name":"平溪"},{"id":"7336","name":"菁桐"},{"id":"7350","name":"猴硐"},{"id":"7360","name":"瑞芳"},{"id":"7361","name":"海科館"},{"id":"7362","name":"八斗子"},{"id":"7380","name":"四腳亭"},{"id":"7390","name":"暖暖"}
@@ -251,8 +268,34 @@
                     if (filteredTrains.length === 0) {
                         messageDiv.textContent = '查詢無結果，請嘗試調整時間或日期。';
                     } else {
+                        messageDiv.textContent = '正在分析列車運行狀態和即時動態...';
+                        
+                        // 這裡非同步預先取得這五班車的完整班表，以便精準計算其發車、收班時間
+                        // 避免因僅看起訖區間造成的狀態誤判
+                        const preloadedRoutes = {};
+                        await Promise.all(filteredTrains.map(async (train) => {
+                            try {
+                                const trainNo = train.DailyTrainInfo.TrainNo;
+                                const depTime = train.OriginStopTime?.DepartureTime || '12:00';
+                                const arrTime = train.DestinationStopTime?.ArrivalTime || '13:00';
+                                const routeStops = await fetchTrainRoute(
+                                    trainNo, 
+                                    fromStation.id, 
+                                    toStation.id, 
+                                    depTime, 
+                                    arrTime, 
+                                    searchDateInput.value
+                                );
+                                if (routeStops && routeStops.length > 0) {
+                                    preloadedRoutes[trainNo] = routeStops;
+                                }
+                            } catch (e) {
+                                console.error(`預載車次 ${train.DailyTrainInfo.TrainNo} 完整路線失敗`, e);
+                            }
+                        }));
+                        
                         messageDiv.textContent = '';
-                        renderResults(filteredTrains, delays, prices);
+                        renderResults(filteredTrains, delays, prices, preloadedRoutes);
                     }
 
                 } catch (error) {
@@ -262,8 +305,29 @@
                 }
             }
 
-            function renderResults(trains, delays, prices) {
+            function renderResults(trains, delays, prices, preloadedRoutes = {}) {
                 resultsContainer.innerHTML = '';
+                
+                // 1. 取得當前時間與日期字串 (本地時間比對，精確到分)
+                const now = new Date();
+                const getLocalYYYYMMDD = (d) => {
+                    const yyyy = d.getFullYear();
+                    const mm = String(d.getMonth() + 1).padStart(2, '0');
+                    const dd = String(d.getDate()).padStart(2, '0');
+                    return `${yyyy}-${mm}-${dd}`;
+                };
+                
+                const todayStr = getLocalYYYYMMDD(now);
+                const searchDateVal = searchDateInput.value || todayStr;
+                
+                let isDayFuture = false;
+                let isDayPast = false;
+                if (searchDateVal > todayStr) {
+                    isDayFuture = true;
+                } else if (searchDateVal < todayStr) {
+                    isDayPast = true;
+                }
+
                 trains.forEach(train => {
                     const delayInfo = delays.find(d => d.TrainNo === train.DailyTrainInfo.TrainNo);
                     const delayMinutes = delayInfo ? delayInfo.DelayTime : 0;
@@ -274,13 +338,111 @@
                     const endingStationName = train.DailyTrainInfo?.EndingStationName?.Zh_tw || '未知車站';
                     const trainDirection = train.DailyTrainInfo?.Direction;
 
+                    // 判斷班次狀態 (未來班次、已收班、行駛中)
+                    let trainStatusMode = 'running'; // 'future', 'past', 'running'
+                    if (isDayFuture) {
+                        trainStatusMode = 'future';
+                    } else if (isDayPast) {
+                        trainStatusMode = 'past';
+                    } else { // 今天
+                        const currentHours = now.getHours();
+                        const currentMins = now.getMinutes();
+                        const currentDayMins = currentHours * 60 + currentMins;
+                        
+                        const parseTimeToMinutes = (timeStr) => {
+                            if (!timeStr) return 0;
+                            const [h, m] = timeStr.split(':').map(Number);
+                            return h * 60 + m;
+                        };
+                        
+                        let depMins = 0;
+                        let arrMins = 0;
+                        const stopsList = preloadedRoutes && preloadedRoutes[train.DailyTrainInfo.TrainNo];
+                        
+                        if (stopsList && stopsList.length > 0) {
+                            const firstStop = stopsList[0];
+                            const lastStop = stopsList[stopsList.length - 1];
+                            const rawDepStr = firstStop.DepartureTime || firstStop.ArrivalTime;
+                            const rawArrStr = lastStop.ArrivalTime || lastStop.DepartureTime;
+                            depMins = parseTimeToMinutes(rawDepStr) + delayMinutes;
+                            arrMins = parseTimeToMinutes(rawArrStr) + delayMinutes;
+                        } else {
+                            depMins = parseTimeToMinutes(train.OriginStopTime?.DepartureTime) + delayMinutes;
+                            arrMins = parseTimeToMinutes(train.DestinationStopTime?.ArrivalTime) + delayMinutes;
+                        }
+                        
+                        // 處理跨午夜
+                        if (arrMins < depMins) {
+                            arrMins += 24 * 60;
+                        }
+                        
+                        let adjustedCurrentMins = currentDayMins;
+                        // 若跨午夜，且當前時間為凌晨 (0~6點)，則當前時間調整 + 24小時，以利與昨日發車之時間作區間比對
+                        if (arrMins >= 24 * 60 && currentDayMins < 360) {
+                            adjustedCurrentMins += 24 * 60;
+                        }
+                        
+                        if (adjustedCurrentMins < depMins) {
+                            trainStatusMode = 'future';
+                        } else if (adjustedCurrentMins > arrMins) {
+                            trainStatusMode = 'past';
+                        } else {
+                            trainStatusMode = 'running';
+                        }
+                    }
+
                     // 取得票價，同時檢查車種名稱與行駛方向
-                    // 修正: 在使用 includes 前，確保 priceInfo 是存在的
                     const priceInfo = prices.find(p => p.FareClasses && p.FareClasses.some(className => trainTypeName.includes(className)) && p.Direction === trainDirection);
                     const fareText = priceInfo ? `$${priceInfo.Price}` : '無票價資訊';
                     const easycardPrice = priceInfo ? `$${priceInfo.EasyCard}` : '無票價資訊';
                     const card = document.createElement('div');
                     card.className = 'bg-white rounded-xl shadow-md overflow-hidden cursor-pointer transition-transform transform hover:scale-102';
+                    
+                    let statusHtml = '';
+                    if (trainStatusMode === 'future') {
+                        statusHtml = `
+                            <button class="status-btn mt-1 text-xs px-2.5 py-1 bg-white hover:bg-blue-50/50 border border-blue-200 text-blue-600 rounded-full shadow-xs cursor-pointer inline-flex items-center gap-1 transition-all" 
+                                    data-train="${train.DailyTrainInfo.TrainNo}" 
+                                    data-type="${trainTypeName}" 
+                                    data-delay="${delayMinutes}" 
+                                    data-from="${train.OriginStopTime?.StationID || ''}" 
+                                    data-to="${train.DestinationStopTime?.StationID || ''}"
+                                    data-dep="${train.OriginStopTime?.DepartureTime || ''}"
+                                    data-arr="${train.DestinationStopTime?.ArrivalTime || ''}">
+                                <span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                                <span>未發車 • 預計 ${train.OriginStopTime?.DepartureTime || '--:--'}</span>
+                                <svg class="w-3 h-3 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                                    <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm0-2a6 6 0 100-12 6 6 0 000 12z" clip-rule="evenodd" />
+                                </svg>
+                            </button>
+                        `;
+                    } else if (trainStatusMode === 'past') {
+                        statusHtml = `
+                            <span class="mt-1 text-xs px-2.5 py-1 bg-gray-50 text-gray-400 border border-gray-200 rounded-full inline-flex items-center gap-1 cursor-not-allowed select-none">
+                                <span class="w-1.5 h-1.5 rounded-full bg-gray-300"></span>
+                                <span>已收班</span>
+                            </span>
+                        `;
+                    } else {
+                        statusHtml = `
+                            <button class="status-btn mt-1 text-xs px-2.5 py-1 bg-white hover:bg-blue-50/50 border rounded-full shadow-xs cursor-pointer inline-flex items-center gap-1 transition-all ${delayMinutes > 0 ? 'text-red-600 border-red-100 hover:border-red-200' : 'text-green-600 border-green-100 hover:border-green-200'}" 
+                                    data-train="${train.DailyTrainInfo.TrainNo}" 
+                                    data-type="${trainTypeName}" 
+                                    data-delay="${delayMinutes}" 
+                                    data-from="${train.OriginStopTime?.StationID || ''}" 
+                                    data-to="${train.DestinationStopTime?.StationID || ''}"
+                                    data-dep="${train.OriginStopTime?.DepartureTime || ''}"
+                                    data-arr="${train.DestinationStopTime?.ArrivalTime || ''}">
+                                <span>${delayMinutes > 0 ? `晚 ${delayMinutes} 分` : '準點'}</span>
+                                <svg class="w-3 h-3 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                                    <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm0-2a6 6 0 100-12 6 6 0 000 12z" clip-rule="evenodd" />
+                                </svg>
+                            </button>
+                        `;
+                    }
+
                     card.innerHTML = `
                         <div class="p-4 md:p-6 card-main-content">
                             <div class="grid grid-cols-12 gap-2 items-center">
@@ -309,20 +471,7 @@
                                 <div><p class="text-sm text-gray-500">起訖站點</p><p class="font-semibold">${startingStationName} -> ${endingStationName}</p></div>
                                 <div>
                                     <p class="text-sm text-gray-500">目前狀態</p>
-                                    <button class="status-btn mt-1 text-xs px-2.5 py-1 bg-white hover:bg-blue-50/50 border rounded-full shadow-xs cursor-pointer inline-flex items-center gap-1 transition-all ${delayMinutes > 0 ? 'text-red-600 border-red-100 hover:border-red-200' : 'text-green-600 border-green-100 hover:border-green-200'}" 
-                                            data-train="${train.DailyTrainInfo.TrainNo}" 
-                                            data-type="${trainTypeName}" 
-                                            data-delay="${delayMinutes}" 
-                                            data-from="${train.OriginStopTime?.StationID || ''}" 
-                                            data-to="${train.DestinationStopTime?.StationID || ''}"
-                                            data-dep="${train.OriginStopTime?.DepartureTime || ''}"
-                                            data-arr="${train.DestinationStopTime?.ArrivalTime || ''}">
-                                        <span>${delayMinutes > 0 ? `晚 ${delayMinutes} 分` : '準點'}</span>
-                                        <svg class="w-3 h-3 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
-                                            <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-                                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm0-2a6 6 0 100-12 6 6 0 000 12z" clip-rule="evenodd" />
-                                        </svg>
-                                    </button>
+                                    ${statusHtml}
                                 </div>
                                 <div><p class="text-sm text-gray-500">全票票價</p><p class="font-semibold">${fareText}</p></div>
                                 <div><p class="text-sm text-gray-500">悠遊卡價格</p><p class="font-semibold">${easycardPrice === '$0' ? '不可電子票搭乘' : `${easycardPrice}`}</p></div>
@@ -336,8 +485,10 @@
                                     </span>
                                     <span class="text-[10px] text-gray-400 font-normal">點選縮小</span>
                                 </div>
-                                <div class="route-timeline pl-3 pr-2 py-2 border-l border-blue-100 ml-4 relative space-y-4">
-                                    <!-- Dynamic Route Stations Go Here -->
+                                <div class="route-timeline-container max-h-[350px] overflow-y-auto pr-1 relative mt-2 rounded-lg bg-gray-50/50 p-2 border border-gray-100/80">
+                                    <div class="route-timeline pl-3 pr-2 py-2 border-l border-blue-100 ml-4 relative space-y-4">
+                                        <!-- Dynamic Route Stations Go Here -->
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -404,11 +555,19 @@
             }
 
             async function fetchTrainRoute(trainNo, fromId, toId, depTime, arrTime, searchDate) {
-                if (!isKeyProvided()) {
-                    return generateMockRoute(trainNo, fromId, toId, depTime, arrTime, searchDate);
+                const formattedDate = searchDate ? searchDate : new Date().toISOString().split('T')[0];
+                const cacheKey = `${trainNo}_${formattedDate}`;
+                if (globalRouteCache[cacheKey]) {
+                    console.log(`[Cache Hit] 使用快取的車次路線：${cacheKey}`);
+                    return globalRouteCache[cacheKey];
                 }
                 
-                const formattedDate = searchDate ? searchDate : new Date().toISOString().split('T')[0];
+                if (!isKeyProvided()) {
+                    const mockRoute = generateMockRoute(trainNo, fromId, toId, depTime, arrTime, searchDate);
+                    globalRouteCache[cacheKey] = mockRoute;
+                    return mockRoute;
+                }
+                
                 const todayStr = new Date().toISOString().split('T')[0];
                 const isSearchingToday = (formattedDate === todayStr);
 
@@ -527,6 +686,7 @@
                                 const stopTimes = attempt.parse(data);
                                 if (stopTimes && stopTimes.length > 0) {
                                     console.log(`[TDX 路線圖連線] 成功！使用來源: ${attempt.name}，站點數: ${stopTimes.length}`);
+                                    globalRouteCache[cacheKey] = stopTimes;
                                     return stopTimes;
                                 }
                             } else {
@@ -538,11 +698,15 @@
                     }
 
                     console.warn("所有 TDX 路線圖 API 鏈皆失敗或無符合當日資料，將啟用高擬真模擬資料。");
-                    return generateMockRoute(trainNo, fromId, toId, depTime, arrTime, searchDate);
+                    const mockRoute = generateMockRoute(trainNo, fromId, toId, depTime, arrTime, searchDate);
+                    globalRouteCache[cacheKey] = mockRoute;
+                    return mockRoute;
 
                 } catch (error) {
                     console.error("路線圖主流程錯誤:", error);
-                    return generateMockRoute(trainNo, fromId, toId, depTime, arrTime, searchDate);
+                    const mockRoute = generateMockRoute(trainNo, fromId, toId, depTime, arrTime, searchDate);
+                    globalRouteCache[cacheKey] = mockRoute;
+                    return mockRoute;
                 }
             }
 
@@ -555,25 +719,15 @@
                 }
                 
                 const step = fromIndex < toIndex ? 1 : -1;
-                const totalStationsCount = Math.abs(toIndex - fromIndex) + 1;
                 const routeIntermediateStations = [];
                 
                 routeIntermediateStations.push(stations[fromIndex]); // 出發站
                 
-                if (totalStationsCount <= 8) {
-                    let curr = fromIndex + step;
-                    while (curr !== toIndex) {
-                        routeIntermediateStations.push(stations[curr]);
-                        curr += step;
-                    }
-                } else {
-                    const interval = Math.floor(totalStationsCount / 5);
-                    for (let i = 1; i < 5; i++) {
-                        const targetIdx = fromIndex + step * i * interval;
-                        if (targetIdx !== toIndex && stations[targetIdx] && stations[targetIdx].id !== fromId && stations[targetIdx].id !== toId) {
-                            routeIntermediateStations.push(stations[targetIdx]);
-                        }
-                    }
+                // 產生所有中間站點點，不再縮減
+                let curr = fromIndex + step;
+                while (curr !== toIndex) {
+                    routeIntermediateStations.push(stations[curr]);
+                    curr += step;
                 }
                 
                 routeIntermediateStations.push(stations[toIndex]); // 終點站
@@ -777,6 +931,8 @@
                 `;
                 timeline.appendChild(headerDiv);
                 
+                let scrollTarget = null;
+                
                 stopsWithEst.forEach((stop, i) => {
                     const isPassed = activeStopIndex !== -1 ? (i < activeStopIndex) : (i <= activeBetweenIndex);
                     const isCurrentStop = (activeStopIndex === i);
@@ -842,8 +998,8 @@
                                 </div>
                                 <div class="text-right">
                                     ${isCurrentStop ? `
-                                    <span class="inline-flex items-center gap-1 text-[10px] font-bold text-red-600 bg-red-100/60 border border-red-200 px-2 py-0.5 rounded-full animate-bounce">
-                                        列車已到站
+                                    <span class="inline-flex items-center gap-1 text-[10px] font-bold ${statusLabel === '尚未開車' ? 'text-blue-600 bg-blue-100/60 border border-blue-200' : 'text-red-600 bg-red-100/60 border border-red-200'} px-2 py-0.5 rounded-full animate-bounce">
+                                        ${statusLabel === '尚未開車' ? '尚未開車' : '列車已到站'}
                                     </span>
                                     ` : ''}
                                 </div>
@@ -851,6 +1007,10 @@
                         </div>
                     `;
                     timeline.appendChild(itemDiv);
+                    
+                    if (isCurrentStop) {
+                        scrollTarget = itemDiv;
+                    }
                     
                     if (activeBetweenIndex === i && i < stopsWithEst.length - 1) {
                         const nextEstArr = stopsWithEst[i+1].estArr;
@@ -874,8 +1034,25 @@
                             </div>
                         `;
                         timeline.appendChild(transitDiv);
+                        scrollTarget = transitDiv;
                     }
                 });
+                
+                // 自動置中滾動聚焦到當前行駛位置
+                if (scrollTarget) {
+                    setTimeout(() => {
+                        const container = timeline.closest('.route-timeline-container');
+                        if (container) {
+                            const containerHeight = container.clientHeight;
+                            const targetTop = scrollTarget.offsetTop;
+                            const targetHeight = scrollTarget.clientHeight;
+                            container.scrollTo({
+                                top: targetTop - containerHeight / 2 + targetHeight / 2,
+                                behavior: 'smooth'
+                            });
+                        }
+                    }, 250); // 給予稍微多一點 DOM 被完全渲染與展開的高度緩衝時間
+                }
             }
 
             // --- 輔助函式 ---
